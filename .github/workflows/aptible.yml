@@ -17,6 +17,7 @@ jobs:
         with:
           type: git
           app: bull-board
-          environment: clarity-staging
+          environment: clarity-production
           username: ${{ secrets.APTIBLE_USERNAME }}
           password: ${{ secrets.APTIBLE_PASSWORD }}
+
