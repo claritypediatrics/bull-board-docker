@@ -1,4 +1,4 @@
-import { jest } from '@jest/globals';
+import { describe, it, expect, vi } from 'vitest';
 
 // Set NODE_ENV to 'test' to prevent automatic execution of bullMain
 process.env.NODE_ENV = 'test';
@@ -32,50 +32,64 @@ describe('Bull Queue Setup', () => {
 	// Helper function to setup common mocks
 	const setupCommonMocks = (config = defaultConfig, queueKeys = ['bull:queue1:jobs', 'bull:queue2:jobs']) => {
 		// Setup BullMQ mock
-		QueueMock = jest.fn();
-		jest.doMock('bullmq', () => ({
+		QueueMock = vi.fn();
+		vi.doMock('bullmq', () => ({
 			Queue: QueueMock,
 		}));
 
 		// Setup Bull mock
-		BullMock = jest.fn();
-		jest.doMock('bull', () => BullMock);
+		BullMock = vi.fn();
+		vi.doMock('bull', () => ({ default: BullMock }));
 
 		// Setup Bull Board mocks
-		setQueuesMock = jest.fn();
-		createBullBoardMock = jest.fn().mockReturnValue({
+		setQueuesMock = vi.fn();
+		createBullBoardMock = vi.fn().mockReturnValue({
 			setQueues: setQueuesMock,
 		});
-		jest.doMock('@bull-board/api', () => ({
+		vi.doMock('@bull-board/api', () => ({
 			createBullBoard: createBullBoardMock,
 		}));
 
 		// Setup Express Adapter mock
-		ExpressAdapterMock = jest.fn().mockImplementation(() => ({
-			getRouter: jest.fn().mockReturnValue('router'),
-		}));
-		jest.doMock('@bull-board/express', () => ({
-			ExpressAdapter: ExpressAdapterMock,
+		ExpressAdapterMock = vi.fn();
+		vi.doMock('@bull-board/express', () => ({
+			// Provide a constructable class and keep a spy on constructor calls
+			ExpressAdapter: class {
+				constructor(...args) {
+					ExpressAdapterMock(...args);
+				}
+				getRouter() {
+					return 'router';
+				}
+			},
 		}));
 
 		// Setup Adapter mocks
-		BullMQAdapterMock = jest.fn();
-		jest.doMock('@bull-board/api/bullMQAdapter', () => ({
-			BullMQAdapter: BullMQAdapterMock,
+		BullMQAdapterMock = vi.fn();
+		vi.doMock('@bull-board/api/bullMQAdapter', () => ({
+			BullMQAdapter: class {
+				constructor(...args) {
+					BullMQAdapterMock(...args);
+				}
+			},
 		}));
 
-		BullAdapterMock = jest.fn();
-		jest.doMock('@bull-board/api/bullAdapter', () => ({
-			BullAdapter: BullAdapterMock,
+		BullAdapterMock = vi.fn();
+		vi.doMock('@bull-board/api/bullAdapter', () => ({
+			BullAdapter: class {
+				constructor(...args) {
+					BullAdapterMock(...args);
+				}
+			},
 		}));
 
 		// Setup Redis mock
-		clientKeysMock = jest.fn().mockResolvedValue(queueKeys);
-		jest.doMock('../../src/redis', () => ({
+		clientKeysMock = vi.fn().mockResolvedValue(queueKeys);
+		vi.doMock('../../src/redis', () => ({
 			client: {
 				keys: clientKeysMock,
 				connection: 'redis-connection',
-				on: jest.fn(),
+				on: vi.fn(),
 			},
 			redisConfig: {
 				redis: {
@@ -86,22 +100,22 @@ describe('Bull Queue Setup', () => {
 		}));
 
 		// Setup config mock
-		jest.doMock('../../src/config', () => ({
+		vi.doMock('../../src/config', () => ({
 			config,
 		}));
 
 		// Setup backoff mock
-		jest.doMock('exponential-backoff', () => ({
-			backOff: jest.fn().mockImplementation((fn) => fn()),
+		vi.doMock('exponential-backoff', () => ({
+			backOff: vi.fn().mockImplementation((fn) => fn()),
 		}));
 	};
 
 	beforeEach(() => {
 		// Clear all mocks before each test
-		jest.clearAllMocks();
+		vi.clearAllMocks();
 
 		// Reset modules to ensure clean imports
-		jest.resetModules();
+		vi.resetModules();
 	});
 
 	afterEach(() => {
@@ -117,7 +131,7 @@ describe('Bull Queue Setup', () => {
 		setupCommonMocks();
 
 		// Import the module to test
-		require('../../src/bull');
+		await import('../../src/bull');
 
 		// We don't need to call bullMain for this test as we're just testing the initial setup
 		// which happens when the module is imported
@@ -142,7 +156,7 @@ describe('Bull Queue Setup', () => {
 		setupCommonMocks();
 
 		// Import the module to test
-		const bull = require('../../src/bull');
+		const bull = await import('../../src/bull.js');
 
 		// Call the bullMain function
 		await bull.bullMain();
@@ -166,7 +180,7 @@ describe('Bull Queue Setup', () => {
 		});
 
 		// Import the module to test
-		const bull = require('../../src/bull');
+		const bull = await import('../../src/bull');
 
 		// Call the bullMain function
 		await bull.bullMain();
@@ -187,10 +201,10 @@ describe('Bull Queue Setup', () => {
 		setupCommonMocks(defaultConfig, []);
 
 		// Mock console.error to verify it's called
-		consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+		consoleSpy = vi.spyOn(console, 'error').mockImplementation();
 
 		// Import the module to test
-		const bull = require('../../src/bull');
+		const bull = await import('../../src/bull');
 
 		// Call the bullMain function
 		await bull.bullMain();
@@ -203,7 +217,7 @@ describe('Bull Queue Setup', () => {
 		setupCommonMocks(configWithPrefix);
 
 		// Import the module to test
-		const bull = require('../../src/bull');
+		const bull = await import('../../src/bull');
 
 		// Call the bullMain function
 		await bull.bullMain();
